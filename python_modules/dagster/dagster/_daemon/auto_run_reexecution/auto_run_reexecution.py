@@ -11,6 +11,8 @@ from dagster._core.storage.tags import (
     MAX_RETRIES_TAG,
     RETRY_NUMBER_TAG,
     RETRY_ON_ASSET_OR_OP_FAILURE_TAG,
+    RETRY_ON_START_TIMEOUT_TAG,
+    RETRY_ON_UNEXPECTED_TERMINATION_TAG,
     RETRY_STRATEGY_TAG,
     RUN_FAILURE_REASON_TAG,
 )
@@ -66,24 +68,40 @@ def filter_runs_to_should_retry(
         "retry_on_asset_or_op_failure", True
     )
 
+    default_retry_on_start_timeout = instance.get_settings("run_retries").get(
+        "retry_on_start_timeout", False
+    )
+
+    default_retry_on_unexpected_termination = instance.get_settings("run_retries").get(
+        "retry_on_unexpected_termination", False
+    )
+
     for run in runs:
         retry_number = get_retry_number(run)
+        failure_reason_tag = run.tags.get(RUN_FAILURE_REASON_TAG)
+
         retry_on_asset_or_op_failure = run.tags.get(
             RETRY_ON_ASSET_OR_OP_FAILURE_TAG, default_retry_on_asset_or_op_failure
         )
+        retry_on_start_timeout = run.tags.get(
+            RETRY_ON_START_TIMEOUT_TAG, default_retry_on_start_timeout
+        )
+        retry_on_unexpected_termination = run.tags.get(
+            RETRY_ON_UNEXPECTED_TERMINATION_TAG, default_retry_on_unexpected_termination
+        )
+
         if retry_number is not None:
-            if (
-                run.tags.get(RUN_FAILURE_REASON_TAG) == RunFailureReason.STEP_FAILURE.value
-                and not retry_on_asset_or_op_failure
-            ):
+            if failure_reason_tag == RunFailureReason.START_TIMEOUT.value and retry_on_start_timeout:
+                yield (run, retry_number)
+            elif failure_reason_tag == RunFailureReason.STEP_FAILURE.value and retry_on_asset_or_op_failure:
+                yield (run, retry_number)
+            elif failure_reason_tag == RunFailureReason.UNEXPECTED_TERMINATION.value and retry_on_unexpected_termination:
+                yield (run, retry_number)
+            else:
                 instance.report_engine_event(
-                    "Not retrying run since it failed due to an asset or op failure and run retries "
-                    "are configured with retry_on_asset_or_op_failure set to false.",
+                    f"No retry condition was matched for failure reason {failure_reason_tag}. Job will not be restarted.",
                     run,
                 )
-            else:
-                yield (run, retry_number)
-
 
 def get_reexecution_strategy(
     run: DagsterRun, instance: DagsterInstance

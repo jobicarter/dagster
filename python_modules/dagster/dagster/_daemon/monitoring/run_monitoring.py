@@ -53,7 +53,7 @@ def monitor_starting_run(
 
         logger.info(msg)
 
-        instance.report_run_failed(run, msg)
+        instance.report_run_failed_timeout(run, msg)
 
 
 def monitor_canceling_run(

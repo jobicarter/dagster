@@ -2565,6 +2565,30 @@ class DagsterInstance(DynamicPartitionsStore):
         self.report_dagster_event(dagster_event, run_id=dagster_run.run_id, log_level=logging.ERROR)
         return dagster_event
 
+    def report_run_failed_timeout(
+        self, dagster_run: DagsterRun, message: Optional[str] = None
+    ) -> "DagsterEvent":
+        from dagster._core.events import DagsterEvent, DagsterEventType, JobFailureData, RunFailureReason
+
+        check.inst_param(dagster_run, "dagster_run", DagsterRun)
+
+        message = check.opt_str_param(
+            message,
+            "message",
+            "This run has been marked as failed from outside the execution context.",
+        )
+
+        dagster_event = DagsterEvent(
+            event_type_value=DagsterEventType.PIPELINE_FAILURE.value,
+            job_name=dagster_run.job_name,
+            message=message,
+            event_specific_data=JobFailureData(
+                    error=None, failure_reason=RunFailureReason.START_TIMEOUT
+            )
+        )
+        self.report_dagster_event(dagster_event, run_id=dagster_run.run_id, log_level=logging.ERROR)
+        return dagster_event
+
     # directories
 
     def file_manager_directory(self, run_id: str) -> str:

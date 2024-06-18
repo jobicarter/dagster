@@ -376,6 +376,24 @@ def dagster_instance_config_schema() -> Mapping[str, Field]:
                     "field to false will only change retry behavior for runs on dagster "
                     "version 1.6.7 or greater.",
                 ),
+                "retry_on_start_timeout": Field(
+                    bool,
+                    is_required=False,
+                    default_value=False,
+                    description="Whether to retry failed runs when they time out during STARTING. "
+                    "Set this to True if you want to retry jobs that time fail to start. "
+                    "This allows for retrying when encountering for intermittent run launcher "
+                    "infrastructure provider problems.",
+                ),
+                "retry_on_unexpected_termination": Field(
+                    bool,
+                    is_required=False,
+                    default_value=False,
+                    description="Whether to retry failed runs if the run is unexpectedly terminated. "
+                    "This usually occurs if the run launcher infrastructure provider has a failure. "
+                    "Set this to True if you want to retry jobs that fail unexpectedly during a run and "
+                    "do not raise an exception that results in an asset or op failure"
+                ),
             }
         ),
         "code_servers": Field(
